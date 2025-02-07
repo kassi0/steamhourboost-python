@@ -80,24 +80,24 @@
       <a href="{{ url_for('logout_route') }}" style="color: #45178f;">Sair</a>
     </p>
     
-    <h2>Adicionar Nova Conta</h2>
+    <h2>Adicionar Conta</h2>
     <form action="{{ url_for('add_account_route') }}" method="post" class="add-form">
       <label for="steam_username">Usuário Steam:</label>
-      <input type="text" name="steam_username" id="steam_username" required>
-      
+      <input type="text" name="steam_username" id="steam_username" placeholder="Login Steam" required>
+      </br>
       <label for="steam_password">Senha Steam:</label>
-      <input type="password" name="steam_password" id="steam_password" required>
-      
+      <input type="password" name="steam_password" id="steam_password" placeholder="Senha" required>
+      </br>
       <label for="games">Games IDs (números separados por vírgula):</label>
-      <input type="text" name="games" id="games" required>
-      
+      <input type="text" name="games" id="games" placeholder="730, 30, 470" required>
+      </br>
       <button type="submit">Adicionar Conta</button>
     </form>
     
     <h2>Contas Steam</h2>
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        <ul style="color: red;">
+        <ul style="color: orange;">
           {% for message in messages %}
             <li>{{ message }}</li>
           {% endfor %}
