@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Página Inicial</title>
+  {% if waiting_2fa|length > 0 %}
+    <!-- Auto-refresh a cada 10 segundos se houver contas aguardando 2FA -->
+    <meta http-equiv="refresh" content="10">
+  {% endif %}
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      border: 2px solid #45178f;
+    }
+    h1, h2 {
+      color: #45178f;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: center;
+    }
+    th {
+      background-color: #45178f;
+      color: white;
+    }
+    .status-online {
+      color: green;
+      font-weight: bold;
+    }
+    .status-offline {
+      color: red;
+      font-weight: bold;
+    }
+    button {
+      background-color: #45178f;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    input[type="text"], input[type="password"] {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .action-form {
+      display: inline-block;
+      margin: 0 5px;
+    }
+    .add-form {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #45178f;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bem-vindo, {{ username }}!</h1>
+    <p>
+      <a href="{{ url_for('logout_route') }}" style="color: #45178f;">Sair</a>
+    </p>
+    
+    <h2>Adicionar Nova Conta</h2>
+    <form action="{{ url_for('add_account_route') }}" method="post" class="add-form">
+      <label for="steam_username">Usuário Steam:</label>
+      <input type="text" name="steam_username" id="steam_username" required>
+      
+      <label for="steam_password">Senha Steam:</label>
+      <input type="password" name="steam_password" id="steam_password" required>
+      
+      <label for="games">Games IDs (números separados por vírgula):</label>
+      <input type="text" name="games" id="games" required>
+      
+      <button type="submit">Adicionar Conta</button>
+    </form>
+    
+    <h2>Contas Steam</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul style="color: red;">
+          {% for message in messages %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Usuário Steam</th>
+          <th>Games IDs</th>
+          <th>Status</th>
+          <th>Ativar/Desativar</th>
+          <th>2FA</th>
+          <th>Remover</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td>{{ account["id"] }}</td>
+          <td>{{ account["steam_username"] }}</td>
+          <td>
+            <form action="{{ url_for('update_games_route', account_id=account['id']) }}" method="post" class="action-form">
+              <input type="text" name="games" value='{{ account["games"] }}' style="width: 150px;">
+              <button type="submit">Atualizar</button>
+            </form>
+          </td>
+          <td>
+            {% if account["id"] in running_status %}
+              <span class="status-online">Online</span>
+            {% else %}
+              <span class="status-offline">Offline</span>
+            {% endif %}
+          </td>
+          <td>
+            <form action="{{ url_for('toggle_route', account_id=account['id']) }}" method="post" class="action-form">
+              {% if account["id"] in running_status %}
+                <button type="submit">Desativar</button>
+              {% else %}
+                <button type="submit">Ativar</button>
+              {% endif %}
+            </form>
+          </td>
+          <td>
+            {% if account["id"] in waiting_2fa %}
+              <form action="{{ url_for('submit_2fa_route', account_id=account['id']) }}" method="post" class="action-form" data-2fa data-account-id="{{ account['id'] }}">
+                <input type="text" name="auth_code" placeholder="Código 2FA">
+                <button type="submit">Enviar</button>
+              </form>
+            {% else %}
+              <!-- Formulário de 2FA oculto -->
+              <form action="{{ url_for('submit_2fa_route', account_id=account['id']) }}" method="post" class="action-form" data-2fa data-account-id="{{ account['id'] }}" style="display: none;">
+                <input type="text" name="auth_code" placeholder="Código 2FA">
+                <button type="submit">Enviar</button>
+              </form>
+            {% endif %}
+          </td>          
+          <td>
+            <form action="{{ url_for('remove_account_route', account_id=account['id']) }}" method="post" class="action-form">
+              <button type="submit" style="background-color: #c0392b;">Remover</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <script>
+    // Função para verificar o status 2FA no servidor
+    function check2FAStatus() {
+      fetch("{{ url_for('status_2fa') }}")
+        .then(response => response.json())
+        .then(data => {
+          // Para cada conta na lista waiting_2fa, exibe o formulário de 2FA
+          // Aqui assumimos que o formulário de 2FA de cada conta possui um atributo data-account-id
+          document.querySelectorAll("form[data-2fa]").forEach(form => {
+            var accountId = form.getAttribute("data-account-id");
+            if (data.waiting_2fa.includes(parseInt(accountId))) {
+              form.style.display = "inline-block";
+            } else {
+              form.style.display = "none";
+            }
+          });
+        })
+        .catch(error => console.error("Erro ao verificar status 2FA:", error));
+    }
+    
+    // Chama a função a cada 5 segundos
+    setInterval(check2FAStatus, 5000);
+    
+    // Chama uma vez ao carregar a página
+    window.onload = check2FAStatus;
+  </script>
+  
+</body>
+</html>
